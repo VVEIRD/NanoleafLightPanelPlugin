@@ -55,9 +55,12 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	private JLabel lblMacHasAccessToken;
 	private JButton btnRemoveAccesToken;
 	
+	private boolean isEnabled = false;
+	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public JNanoleafOptionsPanel(NanoleafLightPanelPlugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin);
+		this.isEnabled = this.plugin.isEnabled();
 		setOpaque(false);
 		this.setBackground(ColorScheme.MAIN_BACKGROUND_COLOR);
 		this.setOpaque(false);
@@ -230,7 +233,7 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 
 	@Override
 	public void save() {
-		AudioApp.addConfig("nanoleaf.enabled", String.valueOf(this.plugin.isEnabled()));
+		AudioApp.addConfig("nanoleaf.enabled", String.valueOf(isEnabled));
 		for (String mac : accessToken.keySet()) {
 			String accToken = accessToken.get(mac);
 			AudioApp.addConfig("nanoleaf.accessToken." + mac, accToken);
@@ -239,18 +242,17 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	
 	@Override
 	public void enablePlugin() {
-		this.plugin.enable();
+		isEnabled = true;
 	}
 	
 	@Override
 	public void disablePlugin() {
-		this.plugin.disable();
+		isEnabled = false;
 	}
 	
 	@Override
 	public boolean isEnabled() {
-		// TODO Auto-generated method stub
-		return this.plugin.isEnabled();
+		return isEnabled;
 	}
 	
 	@Override
