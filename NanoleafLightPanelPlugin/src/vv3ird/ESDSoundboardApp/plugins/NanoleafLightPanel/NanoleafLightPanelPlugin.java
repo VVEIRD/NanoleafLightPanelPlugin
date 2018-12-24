@@ -8,6 +8,8 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -75,6 +77,8 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 					if(AudioApp.getConfig("nanoleaf.accessToken." + mac) != null) {
 						logger.debug("Aurora is configured in the app, connecting...");
 						Aurora aurora = new Aurora(inetSocketAddress, API_LEVEL, AudioApp.getConfig("nanoleaf.accessToken." + mac));
+						logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
+						logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
 						auroras.put(mac, aurora);
 						if(instanceMac == null)
 							instanceMac =  mac;
@@ -220,35 +224,42 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 		logger.debug(s);
 		if (isEnabled() && isConfigured() && isConnected()) {
 			List<SoundPluginMetadata> metadata = s.getMetadataFor(NanoleafLightPanelPlugin.class.getCanonicalName());
-			if(metadata != null && metadata.size() > 0) {
-				SoundPluginMetadata effect     = metadata.stream().filter(m -> "Effect".equalsIgnoreCase(m.key)).findFirst().orElse(null);
-				SoundPluginMetadata brightness = metadata.stream().filter(m -> "Brightness".equalsIgnoreCase(m.key)).findFirst().orElse(null);
-				SoundPluginMetadata switchOnOf = metadata.stream().filter(m -> "Switch On/Off".equalsIgnoreCase(m.key)).findFirst().orElse(null);
-				SoundPluginMetadata mac = metadata.stream().filter(m -> "MAC".equalsIgnoreCase(m.key)).findFirst().orElse(null);
-				if(switchOnOf != null) {
-					try {
-						auroras.get(mac != null && mac.valueString != null ? mac.valueString : instanceMac).state().setOn(switchOnOf.valueInt != 0);
-					} catch (StatusCodeException e) {
-						logger.error("Error switching aurora on/off: " + switchOnOf.valueInt);
-						logger.error(e);
-//						e.printStackTrace();
-					}
-				}if(effect != null) {
-					try {
-						auroras.get(mac != null && mac.valueString != null ? mac.valueString : instanceMac).effects().setEffect(effect.valueString);
-					} catch (StatusCodeException e) {
-						logger.error("Error setting new effect: " + effect.valueString);
-						logger.error(e);
-//						e.printStackTrace();
-					}
+			Collections.sort(metadata, new Comparator<SoundPluginMetadata>() {
+				@Override
+				public int compare(SoundPluginMetadata o1, SoundPluginMetadata o2) {
+					return o1.key.compareTo(o2.key);
 				}
-				if(brightness != null) {
-					try {
-						auroras.get(mac != null && mac.valueString != null ? mac.valueString : instanceMac).state().fadeToBrightness(brightness.valueInt, 5);
-					} catch (StatusCodeException e) {
-						logger.error("Error changing brightness: " + brightness.valueInt);
-						logger.error(e);
-//						e.printStackTrace();
+			});
+			if(metadata != null && metadata.size() > 0) {
+				for (SoundPluginMetadata metad : metadata) {
+					if(metad.key.equals("Switch On/Off")) {
+						try {
+							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceMac).state().setOn(metad.valueInt != 0);
+							logger.debug("Switching " + metad.pluginName + " " + (metad.valueInt != 0 ? "on" : "off"));
+						} catch (StatusCodeException e) {
+							logger.error("Error switching aurora on/off: " + metad.valueInt);
+							logger.error(e);
+//							e.printStackTrace();
+						}
+					}
+					else if(metad.key.equals("Effect")) {
+						try {
+							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceMac).effects().setEffect(metad.valueString);
+						} catch (StatusCodeException e) {
+							logger.error("Error setting new effect: " + metad.valueString);
+							logger.error(e);
+//							e.printStackTrace();
+						}
+					}
+					else if(metad.key.equals("Brightness")) {
+						try {
+							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceMac).state().setBrightness(metad.valueInt);
+							logger.debug("Setting brightness of " + metad.pluginName + " to: " + metad.valueInt);
+						} catch (StatusCodeException e) {
+							logger.error("Error changing brightness: " + metad.valueInt);
+							logger.error(e);
+//							e.printStackTrace();
+						}
 					}
 				}
 			}
