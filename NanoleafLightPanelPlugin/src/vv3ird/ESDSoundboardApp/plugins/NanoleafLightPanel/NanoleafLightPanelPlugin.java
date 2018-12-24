@@ -163,7 +163,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 	@Override
 	public List<SoundPluginMetadataTemplate> getSoundPluginMetadataTemplates() {
-		List<String> effectsList = getListForMetadata("Effect", instanceMac);
+		List<String> effectsList = getListForMetadata("Effect", instanceMac, null);
 		SoundPluginMetadataTemplate effect = new SoundPluginMetadataTemplate(
 				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, "NanoleafLightPanelPlugin", TYPE.LIST,
 				"Effect", effectsList, 0, 0, "", 0);
@@ -190,10 +190,10 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 	@Override
 	public List<String> getListForMetadata(SoundPluginMetadata metadata) {
-		return getListForMetadata(metadata.key, metadata.instanceId);
+		return getListForMetadata(metadata.key, metadata.instanceId, metadata.valueString);
 	}
 	
-	public List<String> getListForMetadata(String metadata, String instanceId) {
+	public List<String> getListForMetadata(String metadata, String instanceId, String value) {
 		if (isEnabled() && isConfigured() && this.auroras.size() > 0) {
 			if ("Effect".equalsIgnoreCase(metadata)) {
 				try {
@@ -207,7 +207,10 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 				return new ArrayList<>(auroras.keySet());
 			}
 		}
-		return null;
+		// Instance not online return value only
+		List<String> list = new ArrayList<>(1);
+		list.add(value);
+		return list;
 	}
 
 	//
