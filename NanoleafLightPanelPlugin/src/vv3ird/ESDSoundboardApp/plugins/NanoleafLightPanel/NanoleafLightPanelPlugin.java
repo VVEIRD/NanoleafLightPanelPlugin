@@ -167,17 +167,18 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 	@Override
 	public List<SoundPluginMetadataTemplate> getSoundPluginMetadataTemplates() {
+		// "NanoleafLightPanelPlugin"
 		List<String> effectsList = getListForMetadata("Effect", instanceMac, null);
 		SoundPluginMetadataTemplate effect = new SoundPluginMetadataTemplate(
-				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, "NanoleafLightPanelPlugin", TYPE.LIST,
+				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, getDisplayName(), TYPE.LIST,
 				"Effect", effectsList, 0, 0, "", 0);
 
 		SoundPluginMetadataTemplate brightness = new SoundPluginMetadataTemplate(
-				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, "NanoleafLightPanelPlugin", TYPE.INT,
+				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, getDisplayName(), TYPE.INT,
 				"Brightness", null, 0, 100, "", 70);
 
 		SoundPluginMetadataTemplate switchOnOff = new SoundPluginMetadataTemplate(
-				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, "NanoleafLightPanelPlugin", TYPE.INT,
+				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, getDisplayName(), TYPE.INT,
 				"Switch On/Off", null, 0, 1, "", 1);
 
 		/*
