@@ -4,7 +4,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -186,7 +185,11 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	}
 
 	private Map<String, InetSocketAddress> getAuroras() {
-		Map<String, InetSocketAddress> auroras = NanoleafLightPanelPlugin.getAvailableAuroras();
+		List<InetSocketAddress> availableAuroras = NanoleafLightPanelPlugin.getAvailableAuroras();
+		Map<String, InetSocketAddress> auroras = new HashMap<>();
+		for (InetSocketAddress inetSocketAddress : availableAuroras) {
+			auroras.put(NanoleafLightPanelPlugin.getMac(inetSocketAddress.getHostName()), inetSocketAddress);
+		}
 		return auroras;
 	}
 

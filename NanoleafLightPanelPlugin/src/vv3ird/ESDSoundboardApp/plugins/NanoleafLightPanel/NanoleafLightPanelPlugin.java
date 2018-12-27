@@ -4,8 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,9 +24,7 @@ import io.github.rowak.Setup;
 import io.github.rowak.StatusCodeException;
 import io.github.rowak.StatusCodeException.UnauthorizedException;
 import vv3ird.ESDSoundboardApp.AudioApp;
-import vv3ird.ESDSoundboardApp.config.AppConfiguration;
 import vv3ird.ESDSoundboardApp.config.Sound;
-import vv3ird.ESDSoundboardApp.ngui.pages.Page;
 import vv3ird.ESDSoundboardApp.ngui.plugins.JPluginConfigurationPanel;
 import vv3ird.ESDSoundboardApp.plugins.NanoleafLightPanel.pages.JNanoleafOptionsPanel;
 import vv3ird.ESDSoundboardApp.plugins.data.Plugin;
@@ -47,7 +43,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	/**
 	 * List with all available auroras on the network
 	 */
-	private static Map<String, InetSocketAddress> availableAuroras = new HashMap<>();
+	private static List<InetSocketAddress> availableAuroras = new LinkedList<>();
 	
 	/**
 	 * Timeout for Aurora discovery in ms.
@@ -64,6 +60,8 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	 */
 	private static boolean fistDiscoveryDone = false;
 	
+	private static boolean loopDiscovery = false;
+	
 	/**
 	 * Configured auroras
 	 */
@@ -79,36 +77,33 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 		auroraDiscovery = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				while(true) {
+				do {
 					try {
 						List<InetSocketAddress> available = Setup.findAuroras(DISCOVERY_TIMEOUT);
-						Map<String , InetSocketAddress> newDiscovery = new HashMap<>();
-						for (InetSocketAddress inetSocketAddress : available) {
-							String mac = getMac(inetSocketAddress.getHostName());
-							if(mac != null)
-								newDiscovery.put(mac, inetSocketAddress);
-						}
-						availableAuroras = newDiscovery;
+						availableAuroras = available;
 						if(!fistDiscoveryDone)
 							fistDiscoveryDone = true;
-						Thread.sleep(15_000);
+						if(loopDiscovery)
+							Thread.sleep(15_000);
 					} catch (IOException | InterruptedException e) {
 						logger.error("Error discovering auroras", e);
 					}
-				}
+				} while(loopDiscovery);
 			}
 		});
+		auroraDiscovery.run();
+		loopDiscovery = true;
 		auroraDiscovery.setDaemon(true);
 		auroraDiscovery.start();
 	}
 	
-	public static Map<String, InetSocketAddress> getAvailableAuroras() {
+	public static List<InetSocketAddress> getAvailableAuroras() {
 		int timeWaited = 0;
 		while(!fistDiscoveryDone)
 			try {
 				Thread.sleep(20);
 				timeWaited += 20;
-				if(timeWaited > DISCOVERY_TIMEOUT*2)
+				if(timeWaited > (DISCOVERY_TIMEOUT*2))
 					break;
 			} catch (InterruptedException e) {
 				logger.error("Thread Sleep was interrupted", e);
@@ -132,10 +127,10 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 		instanceMac = null;
 		logger.debug("Initializing " + getDisplayName());
 		if (isEnabled() && isConfigured()) {
-			logger.debug(getDisplayName() + " is enabled and configured connection to aurora");
-			Map<String, InetSocketAddress> auroraInetAdresses = getAvailableAuroras();
-			for (String mac : auroraInetAdresses.keySet()) {
-				InetSocketAddress inetSocketAddress = auroraInetAdresses.get(mac);
+			logger.debug(getDisplayName() + " is enabled and configured for connection to aurora");
+			List<InetSocketAddress> auroraInetAdresses = getAvailableAuroras();
+			for (InetSocketAddress inetSocketAddress : auroraInetAdresses) {
+				String mac = getMac(inetSocketAddress.getHostName());
 				logger.debug("Aurora in network: " + inetSocketAddress.toString());
 				if(AudioApp.getConfig("nanoleaf.accessToken." + mac) != null) {
 					logger.debug("Aurora is configured in the app, connecting...");
@@ -153,7 +148,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 	@Override
 	public String getDisplayName() {
-		return "Nanoleaf Plugin " + ( instanceName != null ? "(" + instanceName + ")" : "");
+		return "Nanoleaf Plugin" + ( instanceName != null ? " (" + instanceName + ")" : "");
 	}
 
 	@Override
