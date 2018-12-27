@@ -44,6 +44,29 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 	List<PluginListener> listener = new LinkedList<>();
 	
+	/**
+	 * List with all available auroras on the network
+	 */
+	private static Map<String, InetSocketAddress> availableAuroras = new HashMap<>();
+	
+	/**
+	 * Timeout for Aurora discovery in ms.
+	 */
+	public static int DISCOVERY_TIMEOUT = 5_000;
+	
+	/**
+	 * Daemon to discover new auroras on the network.
+	 */
+	private static Thread auroraDiscovery = null;
+	
+	/**
+	 * Flag that the first discovery run was done.
+	 */
+	private static boolean fistDiscoveryDone = false;
+	
+	/**
+	 * Configured auroras
+	 */
 	private Map<String, Aurora> auroras = null;
 	
 	private String instanceMac = null;
@@ -51,6 +74,47 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	private String instanceName = null;
 	
 	public static final String API_LEVEL = "v1";
+	
+	static {
+		auroraDiscovery = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				while(true) {
+					try {
+						List<InetSocketAddress> available = Setup.findAuroras(DISCOVERY_TIMEOUT);
+						Map<String , InetSocketAddress> newDiscovery = new HashMap<>();
+						for (InetSocketAddress inetSocketAddress : available) {
+							String mac = getMac(inetSocketAddress.getHostName());
+							if(mac != null)
+								newDiscovery.put(mac, inetSocketAddress);
+						}
+						availableAuroras = newDiscovery;
+						if(!fistDiscoveryDone)
+							fistDiscoveryDone = true;
+						Thread.sleep(15_000);
+					} catch (IOException | InterruptedException e) {
+						logger.error("Error discovering auroras", e);
+					}
+				}
+			}
+		});
+		auroraDiscovery.setDaemon(true);
+		auroraDiscovery.start();
+	}
+	
+	public static Map<String, InetSocketAddress> getAvailableAuroras() {
+		int timeWaited = 0;
+		while(!fistDiscoveryDone)
+			try {
+				Thread.sleep(20);
+				timeWaited += 20;
+				if(timeWaited > DISCOVERY_TIMEOUT*2)
+					break;
+			} catch (InterruptedException e) {
+				logger.error("Thread Sleep was interrupted", e);
+			}
+		return availableAuroras;
+	}
 
 	public NanoleafLightPanelPlugin() {
 		
@@ -69,32 +133,22 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 		logger.debug("Initializing " + getDisplayName());
 		if (isEnabled() && isConfigured()) {
 			logger.debug(getDisplayName() + " is enabled and configured connection to aurora");
-			try {
-				List<InetSocketAddress> auroraInetAdresses = getAuroras();
-				for (InetSocketAddress inetSocketAddress : auroraInetAdresses) {
-					logger.debug("Aurora in network: " + inetSocketAddress.toString());
-					String mac = getMac(inetSocketAddress.getHostName());
-					if(AudioApp.getConfig("nanoleaf.accessToken." + mac) != null) {
-						logger.debug("Aurora is configured in the app, connecting...");
-						Aurora aurora = new Aurora(inetSocketAddress, API_LEVEL, AudioApp.getConfig("nanoleaf.accessToken." + mac));
-						logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
-						logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
-						auroras.put(mac, aurora);
-						if(instanceMac == null)
-							instanceMac =  mac;
-						logger.debug("Aurora \"" + aurora.getName() + "\"is connected");
-					}
+			Map<String, InetSocketAddress> auroraInetAdresses = getAvailableAuroras();
+			for (String mac : auroraInetAdresses.keySet()) {
+				InetSocketAddress inetSocketAddress = auroraInetAdresses.get(mac);
+				logger.debug("Aurora in network: " + inetSocketAddress.toString());
+				if(AudioApp.getConfig("nanoleaf.accessToken." + mac) != null) {
+					logger.debug("Aurora is configured in the app, connecting...");
+					Aurora aurora = new Aurora(inetSocketAddress, API_LEVEL, AudioApp.getConfig("nanoleaf.accessToken." + mac));
+					logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
+					logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
+					auroras.put(mac, aurora);
+					if(instanceMac == null)
+						instanceMac =  mac;
+					logger.debug("Aurora \"" + aurora.getName() + "\"is connected");
 				}
-			} catch (IOException e) {
-				logger.error("Error connection to aurora");
-				logger.error(e);
 			}
 		}
-	}
-
-	public List<InetSocketAddress> getAuroras() throws SocketTimeoutException, UnknownHostException, IOException {
-		List<InetSocketAddress> auroras = Setup.findAuroras(5_000);
-		return auroras;
 	}
 
 	@Override

@@ -186,18 +186,7 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	}
 
 	private Map<String, InetSocketAddress> getAuroras() {
-		Map<String, InetSocketAddress> auroras = new HashMap<>();
-		List<InetSocketAddress> auroraAdresses;
-		try {
-			auroraAdresses = Setup.findAuroras(5_000);
-			for (InetSocketAddress inetSocketAddress : auroraAdresses) {
-				String mac = NanoleafLightPanelPlugin.getMac(inetSocketAddress.getHostName());
-				auroras.put(mac, inetSocketAddress);
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		Map<String, InetSocketAddress> auroras = NanoleafLightPanelPlugin.getAvailableAuroras();
 		return auroras;
 	}
 
