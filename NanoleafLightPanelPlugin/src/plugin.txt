@@ -1,1 +1,1 @@
-vv3ird.ESDSoundboardApp.plugins.NanoleafLightPanel.NanoleafLightPanelPlugin
+vveird.TabletopSoundboard.plugins.NanoleafLightPanel.NanoleafLightPanelPlugin

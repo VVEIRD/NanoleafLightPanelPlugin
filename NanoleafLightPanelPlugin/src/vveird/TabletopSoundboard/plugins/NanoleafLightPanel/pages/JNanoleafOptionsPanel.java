@@ -1,4 +1,4 @@
-package vv3ird.ESDSoundboardApp.plugins.NanoleafLightPanel.pages;
+package vveird.TabletopSoundboard.plugins.NanoleafLightPanel.pages;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -27,11 +27,11 @@ import io.github.rowak.Setup;
 import io.github.rowak.StatusCodeException;
 import io.github.rowak.StatusCodeException.InternalServerErrorException;
 import io.github.rowak.StatusCodeException.UnauthorizedException;
-import vv3ird.ESDSoundboardApp.AudioApp;
-import vv3ird.ESDSoundboardApp.ngui.plugins.JPluginConfigurationPanel;
-import vv3ird.ESDSoundboardApp.ngui.util.ColorScheme;
-import vv3ird.ESDSoundboardApp.ngui.util.Helper;
-import vv3ird.ESDSoundboardApp.plugins.NanoleafLightPanel.NanoleafLightPanelPlugin;
+import vveird.TabletopSoundboard.AudioApp;
+import vveird.TabletopSoundboard.ngui.plugins.JPluginConfigurationPanel;
+import vveird.TabletopSoundboard.ngui.util.ColorScheme;
+import vveird.TabletopSoundboard.ngui.util.Helper;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.NanoleafLightPanelPlugin;
 
 public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 

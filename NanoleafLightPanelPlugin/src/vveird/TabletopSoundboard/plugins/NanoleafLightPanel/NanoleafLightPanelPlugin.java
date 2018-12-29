@@ -1,4 +1,4 @@
-package vv3ird.ESDSoundboardApp.plugins.NanoleafLightPanel;
+package vveird.TabletopSoundboard.plugins.NanoleafLightPanel;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -23,16 +23,16 @@ import io.github.rowak.Aurora;
 import io.github.rowak.Setup;
 import io.github.rowak.StatusCodeException;
 import io.github.rowak.StatusCodeException.UnauthorizedException;
-import vv3ird.ESDSoundboardApp.AudioApp;
-import vv3ird.ESDSoundboardApp.config.Sound;
-import vv3ird.ESDSoundboardApp.ngui.plugins.JPluginConfigurationPanel;
-import vv3ird.ESDSoundboardApp.plugins.NanoleafLightPanel.pages.JNanoleafOptionsPanel;
-import vv3ird.ESDSoundboardApp.plugins.data.Plugin;
-import vv3ird.ESDSoundboardApp.plugins.data.SoundPluginMetadata;
-import vv3ird.ESDSoundboardApp.plugins.data.SoundPluginMetadataTemplate;
-import vv3ird.ESDSoundboardApp.plugins.data.SoundPluginMetadataTemplate.TYPE;
-import vv3ird.ESDSoundboardApp.plugins.listener.PlaybackListener;
-import vv3ird.ESDSoundboardApp.plugins.listener.PluginListener;
+import vveird.TabletopSoundboard.AudioApp;
+import vveird.TabletopSoundboard.config.Sound;
+import vveird.TabletopSoundboard.ngui.plugins.JPluginConfigurationPanel;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.pages.JNanoleafOptionsPanel;
+import vveird.TabletopSoundboard.plugins.data.Plugin;
+import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadata;
+import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadataTemplate;
+import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadataTemplate.TYPE;
+import vveird.TabletopSoundboard.plugins.listener.PlaybackListener;
+import vveird.TabletopSoundboard.plugins.listener.PluginListener;
 
 public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	
