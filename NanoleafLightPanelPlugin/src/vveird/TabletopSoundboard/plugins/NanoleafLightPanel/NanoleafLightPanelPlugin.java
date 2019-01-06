@@ -26,6 +26,7 @@ import io.github.rowak.StatusCodeException.UnauthorizedException;
 import vveird.TabletopSoundboard.AudioApp;
 import vveird.TabletopSoundboard.config.Sound;
 import vveird.TabletopSoundboard.ngui.plugins.JPluginConfigurationPanel;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.internal.AuroraLightsDevices;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.pages.JNanoleafOptionsPanel;
 import vveird.TabletopSoundboard.plugins.data.Plugin;
 import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadata;
@@ -73,7 +74,21 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	
 	public static final String API_LEVEL = "v1";
 	
-	static {
+	static void staticInit() {
+		/*logger.debug("Static thread for Nanoleaf init");
+		try {
+			logger.debug("Searching for auroras");
+			List<InetSocketAddress> available = Setup.findAuroras(DISCOVERY_TIMEOUT);
+			availableAuroras = available;
+			for (InetSocketAddress inetSocketAddress : available) {
+				logger.debug("Found auroras: " + inetSocketAddress.getHostName());
+			}
+			if(availableAuroras.isEmpty())
+				logger.debug("No auroras found!");
+			fistDiscoveryDone = true;
+		} catch (IOException  e) {
+			logger.error("Error discovering auroras", e);
+		}
 		auroraDiscovery = new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -81,6 +96,9 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 					try {
 						List<InetSocketAddress> available = Setup.findAuroras(DISCOVERY_TIMEOUT);
 						availableAuroras = available;
+						for (InetSocketAddress inetSocketAddress : available) {
+							logger.debug("Found aurora: " + inetSocketAddress.getHostName());
+						}
 						if(!fistDiscoveryDone)
 							fistDiscoveryDone = true;
 						if(loopDiscovery)
@@ -91,28 +109,33 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 				} while(loopDiscovery);
 			}
 		});
-		auroraDiscovery.run();
 		loopDiscovery = true;
+		auroraDiscovery.setName("NanoleafAuroraPluginDiscoverer");
 		auroraDiscovery.setDaemon(true);
-		auroraDiscovery.start();
+		auroraDiscovery.start();*/
 	}
 	
 	public static List<InetSocketAddress> getAvailableAuroras() {
-		int timeWaited = 0;
-		while(!fistDiscoveryDone)
-			try {
-				Thread.sleep(20);
-				timeWaited += 20;
-				if(timeWaited > (DISCOVERY_TIMEOUT*2))
-					break;
-			} catch (InterruptedException e) {
-				logger.error("Thread Sleep was interrupted", e);
-			}
-		return availableAuroras;
+		return AuroraLightsDevices.getAvailableAuroras();
+//		int timeWaited = 0;
+//		while(!fistDiscoveryDone)
+//			try {
+//				Thread.sleep(20);
+//				timeWaited += 20;
+//				if(timeWaited > (DISCOVERY_TIMEOUT*2))
+//					break;
+//			} catch (InterruptedException e) {
+//				logger.error("Thread Sleep was interrupted", e);
+//			}
+//		return availableAuroras;
 	}
 
 	public NanoleafLightPanelPlugin() {
-		
+		staticInit();
+		if(AudioApp.getConfig("nanoleaf.ssdp.discovery") == null)
+		AudioApp.addConfig("nanoleaf.ssdp.discovery", "30000");
+		if(AudioApp.getConfig("nanoleaf.ssdp.timeout") == null)
+			AudioApp.addConfig("nanoleaf.ssdp.timeout", "5000");
 	}
 
 	public NanoleafLightPanelPlugin(String mac, Aurora aurora) {
