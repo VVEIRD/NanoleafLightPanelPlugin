@@ -68,6 +68,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener, Auror
 		AudioApp.addConfig("nanoleaf.ssdp.discovery", "30000");
 		if(AudioApp.getConfig("nanoleaf.ssdp.timeout") == null)
 			AudioApp.addConfig("nanoleaf.ssdp.timeout", "5000");
+		AuroraLightsDevices.addDiscoveryListener(this);
 	}
 
 	public NanoleafLightPanelPlugin(String usn, Aurora aurora) {
@@ -85,19 +86,23 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener, Auror
 			logger.debug(getDisplayName() + " is enabled and configured for connection to aurora");
 			List<AuroraServiceDescriptor> auroraInetAdresses = getAvailableAuroras();
 			for (AuroraServiceDescriptor serviceDescriptor : auroraInetAdresses) {
-				String usn = serviceDescriptor.usn;
-				logger.debug("Aurora in network: " + serviceDescriptor.deviceName + "(" + serviceDescriptor.address.getHostName() + ")");
-				if(AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN + "." + serviceDescriptor.usn) != null) {
-					logger.debug("Aurora is configured in the app, connecting...");
-					Aurora aurora = new Aurora(serviceDescriptor.address, API_LEVEL, AudioApp.getConfig( NANOLEAF_ACCESS_TOKEN + "." + usn));
-					logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
-					logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
-					auroras.put(serviceDescriptor.usn, aurora);
-					if(instanceUsn == null)
-						instanceUsn =  serviceDescriptor.usn;
-					logger.debug("Aurora \"" + aurora.getName() + "\"is connected");
-				}
+				addAurora(serviceDescriptor);
 			}
+		}
+	}
+
+	private void addAurora(AuroraServiceDescriptor serviceDescriptor) throws UnauthorizedException, StatusCodeException {
+		String usn = serviceDescriptor.usn;
+		logger.debug("Aurora in network: " + serviceDescriptor.deviceName + "(" + serviceDescriptor.address.getHostName() + ")");
+		if(AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN + "." + serviceDescriptor.usn) != null) {
+			logger.debug("Aurora is configured in the app, connecting...");
+			Aurora aurora = new Aurora(serviceDescriptor.address, API_LEVEL, AudioApp.getConfig( NANOLEAF_ACCESS_TOKEN + "." + usn));
+			logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
+			logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
+			auroras.put(serviceDescriptor.usn, aurora);
+			if(instanceUsn == null)
+				instanceUsn =  serviceDescriptor.usn;
+			logger.debug("Aurora \"" + aurora.getName() + "\"is connected");
 		}
 	}
 
@@ -297,22 +302,19 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener, Auror
 
 	@Override
 	public void auroraJoined(AuroraServiceDescriptor auroraService) {
-		
-		if(!auroras.containsKey(auroraService.usn) &&  AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN  + "." + auroraService.usn) != null) {
-			try {
-				Aurora aurora = new Aurora(auroraService.address, API_LEVEL, AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN  + "." + auroraService.usn));
-				auroras.put(auroraService.usn, aurora);
-			} catch (StatusCodeException e) {
-				logger.error("Could not add aurora on discovery", e);
-			}
+		try {
+			addAurora(auroraService);
+		} catch (StatusCodeException e) {
+			logger.error("Could not add aurora on discovery", e);
 		}
-		
 	}
 
 	@Override
 	public void auroraLeft(AuroraServiceDescriptor aurora) {
-		if(auroras.containsKey(aurora.usn))
-			auroras.remove(aurora.usn);
+		if(auroras.containsKey(aurora.usn)) {
+			Aurora a = auroras.remove(aurora.usn);
+			logger.debug("Aurora removed: " + a.getName());
+		}
 	}
 
 	public static String getMasasac(String ip) {

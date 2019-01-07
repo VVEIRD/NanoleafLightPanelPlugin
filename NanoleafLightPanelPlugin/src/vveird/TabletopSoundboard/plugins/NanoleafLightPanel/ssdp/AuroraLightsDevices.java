@@ -25,6 +25,7 @@ import com.connectsdk.discovery.provider.ssdp.SSDPClient;
 import com.vmichalak.protocol.ssdp.SSDPMessage;
 
 import vveird.TabletopSoundboard.AudioApp;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.aurora.AuroraDiscoveryListener;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.aurora.AuroraServiceDescriptor;
 
 public class AuroraLightsDevices {
@@ -36,6 +37,8 @@ public class AuroraLightsDevices {
 	public static int TIMEOUT = 5_000;
 
 	private static final List<Thread> ifaceListener = new ArrayList<>(5);
+
+	private static List<AuroraDiscoveryListener> discoveryListeners = new ArrayList<>(5);
 	
 	private static List<AuroraServiceDescriptor> availableAuroras = new LinkedList<>();
 
@@ -77,14 +80,28 @@ public class AuroraLightsDevices {
 	private static void addAvailableAurora(AuroraServiceDescriptor in) {
 		if(!availableAuroras.contains(in)) {
 			availableAuroras.add(in);
+			for (AuroraDiscoveryListener discoveryListener : discoveryListeners) {
+				discoveryListener.auroraJoined(in);
+			}
 		}
 	}
 
 	private static void removeAvailableAurora(AuroraServiceDescriptor in) {
-		if(availableAuroras.contains(in)) {
+		if (availableAuroras.contains(in)) {
 			logger.debug("Aurora Light left the network: " + in.deviceName);
 			availableAuroras.remove(in);
+			for (AuroraDiscoveryListener discoveryListener : discoveryListeners) {
+				discoveryListener.auroraLeft(in);
+			}
 		}
+	}
+
+	public static void addDiscoveryListener(AuroraDiscoveryListener l) {
+		discoveryListeners.add(l);
+	}
+
+	public static void removeDiscoveryListener(AuroraDiscoveryListener l) {
+		discoveryListeners.remove(l);
 	}
 	
 	//
