@@ -20,12 +20,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import io.github.rowak.Aurora;
-import io.github.rowak.Setup;
 import io.github.rowak.StatusCodeException;
 import io.github.rowak.StatusCodeException.UnauthorizedException;
 import vveird.TabletopSoundboard.AudioApp;
 import vveird.TabletopSoundboard.config.Sound;
 import vveird.TabletopSoundboard.ngui.plugins.JPluginConfigurationPanel;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.aurora.AuroraDiscoveryListener;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.aurora.AuroraServiceDescriptor;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.pages.JNanoleafOptionsPanel;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.ssdp.AuroraLightsDevices;
@@ -36,33 +36,13 @@ import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadataTemplate.TYPE;
 import vveird.TabletopSoundboard.plugins.listener.PlaybackListener;
 import vveird.TabletopSoundboard.plugins.listener.PluginListener;
 
-public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
+public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener, AuroraDiscoveryListener {
 	
+	public static final String NANOLEAF_ACCESS_TOKEN = "nanoleaf.accessToken";
+
 	private static Logger logger = LogManager.getLogger(NanoleafLightPanelPlugin.class);
 
 	List<PluginListener> listener = new LinkedList<>();
-	
-	/**
-	 * List with all available auroras on the network
-	 */
-	private static List<InetSocketAddress> availableAuroras = new LinkedList<>();
-	
-	/**
-	 * Timeout for Aurora discovery in ms.
-	 */
-	public static int DISCOVERY_TIMEOUT = 5_000;
-	
-	/**
-	 * Daemon to discover new auroras on the network.
-	 */
-	private static Thread auroraDiscovery = null;
-	
-	/**
-	 * Flag that the first discovery run was done.
-	 */
-	private static boolean fistDiscoveryDone = false;
-	
-	private static boolean loopDiscovery = false;
 	
 	/**
 	 * Configured auroras
@@ -76,59 +56,10 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	public static final String API_LEVEL = "v1";
 	
 	static void staticInit() {
-		/*logger.debug("Static thread for Nanoleaf init");
-		try {
-			logger.debug("Searching for auroras");
-			List<InetSocketAddress> available = Setup.findAuroras(DISCOVERY_TIMEOUT);
-			availableAuroras = available;
-			for (InetSocketAddress inetSocketAddress : available) {
-				logger.debug("Found auroras: " + inetSocketAddress.getHostName());
-			}
-			if(availableAuroras.isEmpty())
-				logger.debug("No auroras found!");
-			fistDiscoveryDone = true;
-		} catch (IOException  e) {
-			logger.error("Error discovering auroras", e);
-		}
-		auroraDiscovery = new Thread(new Runnable() {
-			@Override
-			public void run() {
-				do {
-					try {
-						List<InetSocketAddress> available = Setup.findAuroras(DISCOVERY_TIMEOUT);
-						availableAuroras = available;
-						for (InetSocketAddress inetSocketAddress : available) {
-							logger.debug("Found aurora: " + inetSocketAddress.getHostName());
-						}
-						if(!fistDiscoveryDone)
-							fistDiscoveryDone = true;
-						if(loopDiscovery)
-							Thread.sleep(15_000);
-					} catch (IOException | InterruptedException e) {
-						logger.error("Error discovering auroras", e);
-					}
-				} while(loopDiscovery);
-			}
-		});
-		loopDiscovery = true;
-		auroraDiscovery.setName("NanoleafAuroraPluginDiscoverer");
-		auroraDiscovery.setDaemon(true);
-		auroraDiscovery.start();*/
 	}
 	
 	public static List<AuroraServiceDescriptor> getAvailableAuroras() {
 		return AuroraLightsDevices.getAvailableAuroras();
-//		int timeWaited = 0;
-//		while(!fistDiscoveryDone)
-//			try {
-//				Thread.sleep(20);
-//				timeWaited += 20;
-//				if(timeWaited > (DISCOVERY_TIMEOUT*2))
-//					break;
-//			} catch (InterruptedException e) {
-//				logger.error("Thread Sleep was interrupted", e);
-//			}
-//		return availableAuroras;
 	}
 
 	public NanoleafLightPanelPlugin() {
@@ -139,10 +70,10 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 			AudioApp.addConfig("nanoleaf.ssdp.timeout", "5000");
 	}
 
-	public NanoleafLightPanelPlugin(String mac, Aurora aurora) {
+	public NanoleafLightPanelPlugin(String usn, Aurora aurora) {
 		auroras = new HashMap<String, Aurora>();
-		auroras.put(mac, aurora);
-		instanceUsn = mac;
+		auroras.put(usn, aurora);
+		instanceUsn = usn;
 		this.instanceName = aurora.getName();
 	}
 
@@ -156,9 +87,9 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 			for (AuroraServiceDescriptor serviceDescriptor : auroraInetAdresses) {
 				String usn = serviceDescriptor.usn;
 				logger.debug("Aurora in network: " + serviceDescriptor.deviceName + "(" + serviceDescriptor.address.getHostName() + ")");
-				if(AudioApp.getConfig("nanoleaf.accessToken." + serviceDescriptor.usn) != null) {
+				if(AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN + "." + serviceDescriptor.usn) != null) {
 					logger.debug("Aurora is configured in the app, connecting...");
-					Aurora aurora = new Aurora(serviceDescriptor.address, API_LEVEL, AudioApp.getConfig("nanoleaf.accessToken." + usn));
+					Aurora aurora = new Aurora(serviceDescriptor.address, API_LEVEL, AudioApp.getConfig( NANOLEAF_ACCESS_TOKEN + "." + usn));
 					logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
 					logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
 					auroras.put(serviceDescriptor.usn, aurora);
@@ -197,7 +128,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 	@Override
 	public boolean isConfigured() {
-		String[] accessToken = AudioApp.getConfigKeys("nanoleaf.accessToken");
+		String[] accessToken = AudioApp.getConfigKeys(NANOLEAF_ACCESS_TOKEN);
 		logger.debug("Access token:");
 		for (String string : accessToken) {
 			logger.debug(string);
@@ -361,6 +292,27 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 					}
 				}).collect(Collectors.toList());
 		return instances;
+	}
+
+
+	@Override
+	public void auroraJoined(AuroraServiceDescriptor auroraService) {
+		
+		if(!auroras.containsKey(auroraService.usn) &&  AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN  + "." + auroraService.usn) != null) {
+			try {
+				Aurora aurora = new Aurora(auroraService.address, API_LEVEL, AudioApp.getConfig(NANOLEAF_ACCESS_TOKEN  + "." + auroraService.usn));
+				auroras.put(auroraService.usn, aurora);
+			} catch (StatusCodeException e) {
+				logger.error("Could not add aurora on discovery", e);
+			}
+		}
+		
+	}
+
+	@Override
+	public void auroraLeft(AuroraServiceDescriptor aurora) {
+		if(auroras.containsKey(aurora.usn))
+			auroras.remove(aurora.usn);
 	}
 
 	public static String getMasasac(String ip) {

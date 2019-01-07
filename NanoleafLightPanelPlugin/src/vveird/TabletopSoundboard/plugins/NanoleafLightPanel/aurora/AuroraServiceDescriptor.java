@@ -37,7 +37,7 @@ public class AuroraServiceDescriptor {
 
 	@Override
 	public String toString() {
-		return deviceName;
+		return deviceName + " (" + locationUrl + ")";
 	}
 
 }

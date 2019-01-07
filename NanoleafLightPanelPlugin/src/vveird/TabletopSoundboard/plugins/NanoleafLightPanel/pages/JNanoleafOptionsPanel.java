@@ -52,9 +52,9 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	private JPanel pnNanoleaf;
 	private JLabel lblConnectSuccessful;
 	private JLabel lblNotSucc;
-	private JComboBox<String> cbNanoleafDevices;
+	private JComboBox<AuroraServiceDescriptor> cbNanoleafDevices;
 
-	private Map<String, AuroraServiceDescriptor> auroras = null;
+	private Map<AuroraServiceDescriptor, AuroraServiceDescriptor> auroras = null;
 	private Map<String, String> accessToken = null;
 	private JLabel lblMacHasAccessToken;
 	private JButton btnRemoveAccesToken;
@@ -86,7 +86,7 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		btnConnect = new JButton("Connect");
 		btnConnect.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				connect(auroras.get(cbNanoleafDevices.getSelectedItem()));
+				connect((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem());
 			}
 		});
 		btnConnect.setBounds(10, 140, 141, 23);
@@ -104,13 +104,13 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		lblConnectSuccessful = new JLabel("Connect successful");
 		lblConnectSuccessful.setVisible(false);
 		lblConnectSuccessful.setForeground(Color.GREEN.darker());
-		lblConnectSuccessful.setBounds(171, 144, 130, 14);
+		lblConnectSuccessful.setBounds(320, 174, 130, 14);
 		pnNanoleaf.add(lblConnectSuccessful);
 
 		lblNotSucc = new JLabel("Connect not successful");
 		lblNotSucc.setForeground(Color.RED.darker());
 		lblNotSucc.setVisible(false);
-		lblNotSucc.setBounds(161, 144, 140, 14);
+		lblNotSucc.setBounds(310, 174, 140, 14);
 		pnNanoleaf.add(lblNotSucc);
 
 		JLabel lblActiveDevice = new JLabel("Device:");
@@ -122,10 +122,12 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		cbNanoleafDevices = new JComboBox(wait);
 		cbNanoleafDevices.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				if(accessToken.containsKey(cbNanoleafDevices.getSelectedItem())) {
+				if(accessToken.containsKey(((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn)) {
 					lblMacHasAccessToken.setText("Accesstoken already available");
+					lblNotSucc.setVisible(false);
+					lblConnectSuccessful.setVisible(false);
 					updateButtonsForAccessToken(true);
-					pwdAccessToken.setText(accessToken.get(cbNanoleafDevices.getSelectedItem()));
+					pwdAccessToken.setText(accessToken.get(((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn));
 				}
 				else {
 					updateButtonsForAccessToken(false);
@@ -143,13 +145,19 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		btnRemoveAccesToken.setToolTipText("This will destroy the access token in the Nanoleaf Light");
 		btnRemoveAccesToken.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				if(accessToken.containsKey(cbNanoleafDevices.getSelectedItem())) {
+				if(accessToken.containsKey(((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn)) {
 					try {
-						removeAccessToken(auroras.get(cbNanoleafDevices.getSelectedItem()), accessToken.get(cbNanoleafDevices.getSelectedItem()), (String)cbNanoleafDevices.getSelectedItem());
+						String usn = ((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn;
+						removeAccessToken(((AuroraServiceDescriptor) cbNanoleafDevices.getSelectedItem()),
+								accessToken.get(usn), usn);
 						lblMacHasAccessToken.setText("Access Token destroyed");
+						lblNotSucc.setVisible(false);
+						lblConnectSuccessful.setVisible(false);
 						updateButtonsForAccessToken(false);
 					} catch (StatusCodeException e1) {
 						lblMacHasAccessToken.setText("Could not destry access token: " + e1.getMessage());
+						lblNotSucc.setVisible(false);
+						lblConnectSuccessful.setVisible(false);
 						e1.printStackTrace();
 					}
 				}
@@ -159,20 +167,24 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 				}
 			}
 		});
-		btnRemoveAccesToken.setBounds(311, 140, 139, 23);
+		btnRemoveAccesToken.setBounds(161, 140, 139, 23);
 		add(btnRemoveAccesToken);
 		
 		lblMacHasAccessToken = new JLabel("");
-		lblMacHasAccessToken.setBounds(10, 210, 440, 14);
+		lblMacHasAccessToken.setOpaque(false);
+		lblMacHasAccessToken.setBounds(10, 205, 440, 14);
 		add(lblMacHasAccessToken);
 		
 		btnDeleteAccessToken = new JButton("Delete Access Token");
 		btnDeleteAccessToken.setToolTipText("This only deletes the access token from the app");
 		btnDeleteAccessToken.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				if(accessToken.containsKey(cbNanoleafDevices.getSelectedItem())) {
-					deleteAccessToken((String)cbNanoleafDevices.getSelectedItem());
+				String usn = ((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn;
+				if(accessToken.containsKey(usn)) {
+					deleteAccessToken(usn);
 					lblMacHasAccessToken.setText("Access Token deleted");
+					lblNotSucc.setVisible(false);
+					lblConnectSuccessful.setVisible(false);
 					updateButtonsForAccessToken(false);
 				}
 				else {
@@ -181,7 +193,7 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 				}
 			}
 		});
-		btnDeleteAccessToken.setBounds(311, 174, 139, 23);
+		btnDeleteAccessToken.setBounds(310, 140, 139, 23);
 		add(btnDeleteAccessToken);
 		
 		pwdAccessToken = new JPasswordField();
@@ -189,38 +201,49 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 			
 			@Override
 			public void removeUpdate(DocumentEvent e) {
+				String usn = ((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn;
 				if(pwdAccessToken.getPassword().length > 0)
-					accessToken.put((String)cbNanoleafDevices.getSelectedItem(), new String(pwdAccessToken.getPassword()));
+					accessToken.put(usn, new String(pwdAccessToken.getPassword()));
 				else
-					accessToken.remove((String)cbNanoleafDevices.getSelectedItem());
-				updateButtonsForAccessToken(accessToken.containsKey((String)cbNanoleafDevices.getSelectedItem()));
+					accessToken.remove(usn);
+				updateButtonsForAccessToken(accessToken.containsKey(usn));
 				lblMacHasAccessToken.setText("Access token changed");
+				lblNotSucc.setVisible(false);
+				lblConnectSuccessful.setVisible(false);
 			}
 			
 			@Override
 			public void insertUpdate(DocumentEvent e) {
+				String usn = ((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn;
 				if(pwdAccessToken.getPassword().length > 0)
-					accessToken.put((String)cbNanoleafDevices.getSelectedItem(), new String(pwdAccessToken.getPassword()));
+					accessToken.put(usn, new String(pwdAccessToken.getPassword()));
 				else
-					accessToken.remove((String)cbNanoleafDevices.getSelectedItem());
-				updateButtonsForAccessToken(accessToken.containsKey((String)cbNanoleafDevices.getSelectedItem()));
+					accessToken.remove(usn);
+				updateButtonsForAccessToken(accessToken.containsKey(usn));
 				lblMacHasAccessToken.setText("Access token changed");
+				lblNotSucc.setVisible(false);
+				lblConnectSuccessful.setVisible(false);
 			}
 			
 			@Override
 			public void changedUpdate(DocumentEvent e) {
+				String usn = ((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn;
 				if(pwdAccessToken.getPassword().length > 0)
-					accessToken.put((String)cbNanoleafDevices.getSelectedItem(), new String(pwdAccessToken.getPassword()));
+					accessToken.put(usn, new String(pwdAccessToken.getPassword()));
 				else
 					accessToken.remove((String)cbNanoleafDevices.getSelectedItem());
-				updateButtonsForAccessToken(accessToken.containsKey((String)cbNanoleafDevices.getSelectedItem()));
+				updateButtonsForAccessToken(accessToken.containsKey(usn));
 				lblMacHasAccessToken.setText("Access token changed");
+				lblNotSucc.setVisible(false);
+				lblConnectSuccessful.setVisible(false);
 			}
 		});
 		pwdAccessToken.putClientProperty("JPasswordField.cutCopyAllowed",true);
 		pwdAccessToken.setToolTipText("Access Token");
 		pwdAccessToken.setBounds(10, 174, 291, 20);
 		add(pwdAccessToken);
+		lblConnectSuccessful.setOpaque(false);
+		lblNotSucc.setOpaque(false);
 		Thread t = new Thread(new Runnable() {
 
 			@Override
@@ -233,21 +256,24 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 
 	private void initAuroras() {
 		// Load configured Access Token
-		List<String> macs = Arrays.asList(AudioApp.getConfigKeys("nanoleaf.accessToken")).stream()
-				.map(s -> s.replace("nanoleaf.accessToken.", "")).collect(Collectors.toList());
+		List<String> USNs = Arrays.asList(AudioApp.getConfigKeys(NanoleafLightPanelPlugin.NANOLEAF_ACCESS_TOKEN)).stream()
+				.map(s -> s.replace(NanoleafLightPanelPlugin.NANOLEAF_ACCESS_TOKEN + ".", "")).collect(Collectors.toList());
 		accessToken = new HashMap<>();
-		for (String mac : macs) {
-			String at = AudioApp.getConfig("nanoleaf.accessToken." + mac);
+		for (String usn : USNs) {
+			String at = AudioApp.getConfig(NanoleafLightPanelPlugin.NANOLEAF_ACCESS_TOKEN + "." + usn);
 			if (at != null)
-				accessToken.put(mac, at);
+				accessToken.put(usn, at);
 		}
 		// Get all Auroras accessable through the network
 		auroras = getAuroras();
-		cbNanoleafDevices.setModel(new JComboBox<String>(auroras.keySet().toArray(new String[0])).getModel());
-		if(accessToken.containsKey(cbNanoleafDevices.getSelectedItem())) {
+		cbNanoleafDevices.setModel(new JComboBox<AuroraServiceDescriptor>(auroras.keySet().toArray(new AuroraServiceDescriptor[0])).getModel());
+		String usn = cbNanoleafDevices.getSelectedItem() != null ? ((AuroraServiceDescriptor)cbNanoleafDevices.getSelectedItem()).usn : null;
+		if(accessToken.containsKey(usn)) {
 			lblMacHasAccessToken.setText("Accesstoken already available");
+			lblNotSucc.setVisible(false);
+			lblConnectSuccessful.setVisible(false);
 			updateButtonsForAccessToken(true);
-			pwdAccessToken.setText(accessToken.get(cbNanoleafDevices.getSelectedItem()));
+			pwdAccessToken.setText(accessToken.get(usn));
 		}
 		else {
 			updateButtonsForAccessToken(false);
@@ -256,29 +282,30 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		}
 	}
 
-	private Map<String, AuroraServiceDescriptor> getAuroras() {
+	private Map<AuroraServiceDescriptor, AuroraServiceDescriptor> getAuroras() {
 		List<AuroraServiceDescriptor> availableAuroras = NanoleafLightPanelPlugin.getAvailableAuroras();
-		Map<String, AuroraServiceDescriptor> auroras = new HashMap<>();
+		Map<AuroraServiceDescriptor, AuroraServiceDescriptor> auroras = new HashMap<>();
 		for (AuroraServiceDescriptor serviceDescriptor : availableAuroras) {
-			auroras.put(serviceDescriptor.deviceId, serviceDescriptor);
+			auroras.put(serviceDescriptor, serviceDescriptor);
 		}
 		return auroras;
 	}
 
 	private void connect(AuroraServiceDescriptor adress) {
-		String mac = (String) cbNanoleafDevices.getSelectedItem();
-		AuroraServiceDescriptor serviceDescriptor = auroras.get(mac);
-		if (!accessToken.containsKey(mac))
+		AuroraServiceDescriptor serviceDescriptor = adress;
+		if (!accessToken.containsKey(adress.usn))
 			try {
 				String at = Setup.createAccessToken(serviceDescriptor.address.getHostName(), serviceDescriptor.address.getPort(),
 						NanoleafLightPanelPlugin.API_LEVEL);
-				accessToken.put(mac, at);
+				accessToken.put(adress.usn, at);
 				new Aurora(serviceDescriptor.address, NanoleafLightPanelPlugin.API_LEVEL, at);
 				lblConnectSuccessful.setVisible(true);
 				lblNotSucc.setVisible(false);
+				lblMacHasAccessToken.setText("");
 			} catch (StatusCodeException e) {
 				lblConnectSuccessful.setVisible(false);
 				lblNotSucc.setVisible(true);
+				lblMacHasAccessToken.setText("");
 				logger.error("Error getting access token");
 				logger.error(e);
 				e.printStackTrace();
@@ -287,13 +314,11 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 
 	private void removeAccessToken(AuroraServiceDescriptor serviceDescriptor, String accessToken, String usn) throws UnauthorizedException, InternalServerErrorException, StatusCodeException {
 		Setup.destroyAccessToken(serviceDescriptor.address.getHostName(), serviceDescriptor.address.getPort(), NanoleafLightPanelPlugin.API_LEVEL, accessToken);
-		AudioApp.removeConfig("nanoleaf.AccessToken." + usn);
-		pwdAccessToken.setText("");
-		this.accessToken.remove(usn);
+		deleteAccessToken(usn);
 	}
 
 	private void deleteAccessToken(String usn)  {
-		AudioApp.removeConfig("nanoleaf.AccessToken." + usn);
+		AudioApp.removeConfig(NanoleafLightPanelPlugin.NANOLEAF_ACCESS_TOKEN + "." + usn);
 		pwdAccessToken.setText("");
 		accessToken.remove(usn);
 	}
@@ -308,7 +333,7 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		AudioApp.addConfig("nanoleaf.enabled", String.valueOf(isEnabled));
 		for (String mac : accessToken.keySet()) {
 			String accToken = accessToken.get(mac);
-			AudioApp.addConfig("nanoleaf.accessToken." + mac, accToken);
+			AudioApp.addConfig(NanoleafLightPanelPlugin.NANOLEAF_ACCESS_TOKEN + "." + mac, accToken);
 		}
 	}
 	
@@ -348,8 +373,8 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	}
 
 	private void updateButtonsForAccessToken(boolean hasAccessToken) {
-		btnRemoveAccesToken.setVisible(hasAccessToken);
-		btnDeleteAccessToken.setVisible(hasAccessToken);
-		btnConnect.setVisible(!hasAccessToken);
+		btnRemoveAccesToken.setEnabled(hasAccessToken);
+		btnDeleteAccessToken.setEnabled(hasAccessToken);
+		btnConnect.setEnabled(!hasAccessToken);
 	}
 }
