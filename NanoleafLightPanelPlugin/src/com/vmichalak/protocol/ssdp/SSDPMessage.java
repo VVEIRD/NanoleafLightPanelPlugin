@@ -9,8 +9,12 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.connectsdk.discovery.provider.ssdp.SSDPClient;
+
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.ssdp.RegexHelper;
+
 /**
- * Represent a Device discovered by SSDP.
+ * Represent a SSDPMessage discovered by SSDP.
  * 
  * Source: https://github.com/vmichalak/ssdp-client
  * 
@@ -36,31 +40,49 @@ import java.util.regex.Pattern;
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-public class Device {
+public class SSDPMessage {
+
+	public static final String MESSAGE_NOTIFY = "NOTIFY";
+	public static final String MESSAGE_M_SEARCH = "M-SEARCH";
+	public static final String MESSAGE_M_SEARCH_RESPONSE = "SSDP-RESPONSE";
+	
+
+	public static final String NTS_ALIVE = "ssdp:alive";
+	public static final String NTS_BYEBYE = "ssdp:byebye";
+	
+	
+	private static long receiveTime;
+	
+	private final SSDPClient source;
+	
     private final String ssdpType;
     private final String ip;
     private final String descriptionUrl;
     private final String server;
     private final String serviceType;
     private final String usn;
+    private final String nts;
     private final Map<String, String> headers;
 
-    public Device(String ssdpType, String ip, String descriptionUrl, String server, String serviceType, String usn, Map<String, String> headers) {
+    public SSDPMessage(String ssdpType, String ip, String descriptionUrl, String server, String serviceType, String usn, String nts, Map<String, String> headers, SSDPClient source) {
     	this.ssdpType = ssdpType;
         this.ip = ip;
         this.descriptionUrl = descriptionUrl;
         this.server = server;
         this.serviceType = serviceType;
         this.usn = usn;
+        this.nts = nts;
         this.headers = headers;
+        this.source = source;
+        this.receiveTime = System.currentTimeMillis();
     }
 
     /**
-     * Instantiate a new Device Object from a SSDP discovery response packet.
+     * Instantiate a new SSDPMessage Object from a SSDP discovery response packet.
      * @param ssdpResult SSDP Discovery Response packet.
-     * @return Device
+     * @return SSDPMessage
      */
-    public static Device parse(DatagramPacket ssdpResult) {
+    public static SSDPMessage parse(DatagramPacket ssdpResult, SSDPClient source) {
         HashMap<String, String> headers = new HashMap<String, String>();
     	String ssdpType = null;
         Pattern pattern = Pattern.compile("(.*): (.*)");
@@ -68,7 +90,6 @@ public class Device {
         Pattern ssdpPattern = Pattern.compile("(?<ssdptype>.*) \\* HTTP/(?<httpversion>.*)");
 
         String[] lines = new String(ssdpResult.getData()).replace("\r", "").split("\n");
-        System.out.println(new String(ssdpResult.getData()));
         for (String line : lines) {
         	Matcher ssdpHeader = ssdpPattern.matcher(line);
         	Matcher httpResponseHeader = httpResponsePattern.matcher(line);
@@ -86,21 +107,47 @@ public class Device {
             }
         }
         String location = headers.get("LOCATION");
+        location = location != null ? location : "";
         String server = headers.get("SERVER");
-        String st = headers.get("ST");
+        String st = headers.get("ST") != null ? headers.get("ST") : headers.get("NT");
         String usn = headers.get("USN");
+        String nts = headers.get("NTS");
         headers.remove("LOCATION");
         headers.remove("SERVER");
         headers.remove("ST");
+        headers.remove("NT");
         headers.remove("USN");
-        return new Device(
+        headers.remove("NTS");
+        return new SSDPMessage(
         		ssdpType,
                 ssdpResult.getAddress().getHostAddress(),
                 location,
                 server,
                 st,
                 usn,
-                headers);
+                nts,
+                headers,
+                source);
+    }
+    
+    public boolean isMSearch() {
+    	return MESSAGE_M_SEARCH.equalsIgnoreCase(this.getSSDPType());
+    }
+    
+    public boolean isMSearchResponse() {
+    	return MESSAGE_M_SEARCH_RESPONSE.equalsIgnoreCase(this.getSSDPType());
+    }
+    
+    public boolean isNotify() {
+    	return MESSAGE_NOTIFY.equalsIgnoreCase(this.getSSDPType());
+    }
+    
+    public boolean isAlive() {
+    	return isNotify() && NTS_ALIVE.equalsIgnoreCase(this.getNTS());
+    }
+    
+    public boolean isByeBye() {
+    	return isNotify() && NTS_BYEBYE.equalsIgnoreCase(this.getNTS());
     }
     
     public String getSSDPType() {
@@ -127,6 +174,10 @@ public class Device {
         return usn;
     }
     
+    public String getNTS() {
+        return nts;
+    }
+    
     public String getHeader(String header) {
     	return this.headers.get(header);
     }
@@ -140,7 +191,7 @@ public class Device {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        Device device = (Device) o;
+        SSDPMessage device = (SSDPMessage) o;
 
         if (ip != null ? !ip.equals(device.ip) : device.ip != null) return false;
         if (descriptionUrl != null ? !descriptionUrl.equals(device.descriptionUrl) : device.descriptionUrl != null)
@@ -148,7 +199,30 @@ public class Device {
         if (server != null ? !server.equals(device.server) : device.server != null) return false;
         if (serviceType != null ? !serviceType.equals(device.serviceType) : device.serviceType != null) return false;
         return usn != null ? usn.equals(device.usn) : device.usn == null;
-
+    }
+    
+    public SSDPClient getSource() {
+		return source;
+	}
+    
+    public boolean isExpired() {
+    	Matcher mCacheConmtrol = RegexHelper.CACHE_CONTROL.matcher(getHeader("CACHE-CONTROL") != null ? getHeader("CACHE-CONTROL").trim() : "");
+  		if(mCacheConmtrol.matches()) {
+  			String option = mCacheConmtrol.group("option");
+  			String value = mCacheConmtrol.group("value");
+  			if(option != null && option.trim().equalsIgnoreCase("max-age") && value != null) {
+  				return System.currentTimeMillis() - (Integer.valueOf(value)*1200) > receiveTime;
+  			}
+    	}
+    	return false;
+    }
+    
+    public SSDPMessage createByeBye() {
+    	return new SSDPMessage(MESSAGE_NOTIFY, this.ip, this.descriptionUrl, this.server, this.serviceType, this.usn, NTS_BYEBYE, this.headers, this.source);
+    }
+    
+    public SSDPMessage createAlive() {
+    	return new SSDPMessage(MESSAGE_NOTIFY, this.ip, this.descriptionUrl, this.server, this.serviceType, this.usn, NTS_ALIVE, this.headers, this.source);
     }
 
     @Override
@@ -162,7 +236,7 @@ public class Device {
     }
 
     public String toJson() {
-        return "Device{" +
+        return "SSDPMessage{" +
                 "ip='" + ip + '\'' +
                 ", descriptionUrl='" + descriptionUrl + '\'' +
                 ", server='" + server + '\'' +

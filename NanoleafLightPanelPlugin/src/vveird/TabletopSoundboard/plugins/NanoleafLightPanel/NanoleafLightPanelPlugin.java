@@ -26,8 +26,9 @@ import io.github.rowak.StatusCodeException.UnauthorizedException;
 import vveird.TabletopSoundboard.AudioApp;
 import vveird.TabletopSoundboard.config.Sound;
 import vveird.TabletopSoundboard.ngui.plugins.JPluginConfigurationPanel;
-import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.internal.AuroraLightsDevices;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.aurora.AuroraServiceDescriptor;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.pages.JNanoleafOptionsPanel;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.ssdp.AuroraLightsDevices;
 import vveird.TabletopSoundboard.plugins.data.Plugin;
 import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadata;
 import vveird.TabletopSoundboard.plugins.data.SoundPluginMetadataTemplate;
@@ -68,7 +69,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	 */
 	private Map<String, Aurora> auroras = null;
 	
-	private String instanceMac = null;
+	private String instanceUsn = null;
 	
 	private String instanceName = null;
 	
@@ -115,7 +116,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 		auroraDiscovery.start();*/
 	}
 	
-	public static List<InetSocketAddress> getAvailableAuroras() {
+	public static List<AuroraServiceDescriptor> getAvailableAuroras() {
 		return AuroraLightsDevices.getAvailableAuroras();
 //		int timeWaited = 0;
 //		while(!fistDiscoveryDone)
@@ -141,28 +142,28 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	public NanoleafLightPanelPlugin(String mac, Aurora aurora) {
 		auroras = new HashMap<String, Aurora>();
 		auroras.put(mac, aurora);
-		instanceMac = mac;
+		instanceUsn = mac;
 		this.instanceName = aurora.getName();
 	}
 
 	public void init() throws UnauthorizedException, StatusCodeException {
 		auroras = new HashMap<String, Aurora>();
-		instanceMac = null;
+		instanceUsn = null;
 		logger.debug("Initializing " + getDisplayName());
 		if (isEnabled() && isConfigured()) {
 			logger.debug(getDisplayName() + " is enabled and configured for connection to aurora");
-			List<InetSocketAddress> auroraInetAdresses = getAvailableAuroras();
-			for (InetSocketAddress inetSocketAddress : auroraInetAdresses) {
-				String mac = getMac(inetSocketAddress.getHostName());
-				logger.debug("Aurora in network: " + inetSocketAddress.toString());
-				if(AudioApp.getConfig("nanoleaf.accessToken." + mac) != null) {
+			List<AuroraServiceDescriptor> auroraInetAdresses = getAvailableAuroras();
+			for (AuroraServiceDescriptor serviceDescriptor : auroraInetAdresses) {
+				String usn = serviceDescriptor.usn;
+				logger.debug("Aurora in network: " + serviceDescriptor.deviceName + "(" + serviceDescriptor.address.getHostName() + ")");
+				if(AudioApp.getConfig("nanoleaf.accessToken." + serviceDescriptor.usn) != null) {
 					logger.debug("Aurora is configured in the app, connecting...");
-					Aurora aurora = new Aurora(inetSocketAddress, API_LEVEL, AudioApp.getConfig("nanoleaf.accessToken." + mac));
+					Aurora aurora = new Aurora(serviceDescriptor.address, API_LEVEL, AudioApp.getConfig("nanoleaf.accessToken." + usn));
 					logger.debug("Max Brightness for " + aurora.getName() + ": " + + aurora.state().getMaxBrightness());
 					logger.debug("Min Brightness for " + aurora.getName() + ": " + + aurora.state().getMinBrightness());
-					auroras.put(mac, aurora);
-					if(instanceMac == null)
-						instanceMac =  mac;
+					auroras.put(serviceDescriptor.usn, aurora);
+					if(instanceUsn == null)
+						instanceUsn =  serviceDescriptor.usn;
 					logger.debug("Aurora \"" + aurora.getName() + "\"is connected");
 				}
 			}
@@ -207,11 +208,11 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	public boolean isConnected() {
 		try {
 			if (auroras.size() > 0) {
-				auroras.get(instanceMac).state().getBrightness();
+				auroras.get(instanceUsn).state().getBrightness();
 				return true;
 			}
 		} catch (StatusCodeException e) {
-			logger.error("Error connection to aurora " + auroras.get(instanceMac).getName() + "(" + auroras.get(instanceMac).getHostName() + ":" + auroras.get(instanceMac).getPort() + ")");
+			logger.error("Error connection to aurora " + auroras.get(instanceUsn).getName() + "(" + auroras.get(instanceUsn).getHostName() + ":" + auroras.get(instanceUsn).getPort() + ")");
 			e.printStackTrace();
 		}
 		return false;
@@ -240,17 +241,17 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 	@Override
 	public List<SoundPluginMetadataTemplate> getSoundPluginMetadataTemplates() {
 		// "NanoleafLightPanelPlugin"
-		List<String> effectsList = getListForMetadata("Effect", instanceMac, null);
+		List<String> effectsList = getListForMetadata("Effect", instanceUsn, null);
 		SoundPluginMetadataTemplate effect = new SoundPluginMetadataTemplate(
-				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, getDisplayName(), TYPE.LIST,
+				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceUsn, getDisplayName(), TYPE.LIST,
 				"Effect", effectsList, 0, 0, "", 0);
 
 		SoundPluginMetadataTemplate brightness = new SoundPluginMetadataTemplate(
-				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, getDisplayName(), TYPE.INT,
+				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceUsn, getDisplayName(), TYPE.INT,
 				"Brightness", null, 0, 100, "", 70);
 
 		SoundPluginMetadataTemplate switchOnOff = new SoundPluginMetadataTemplate(
-				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceMac, getDisplayName(), TYPE.INT,
+				NanoleafLightPanelPlugin.class.getCanonicalName(), instanceUsn, getDisplayName(), TYPE.INT,
 				"Switch On/Off", null, 0, 1, "", 1);
 
 		/*
@@ -280,7 +281,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 
 				}
 			}
-			else if ("MAC".equalsIgnoreCase(metadata)) {
+			else if ("USN".equalsIgnoreCase(metadata)) {
 				return new ArrayList<>(auroras.keySet());
 			}
 		}
@@ -307,7 +308,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 				for (SoundPluginMetadata metad : metadata) {
 					if(metad.key.equals("Switch On/Off")) {
 						try {
-							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceMac).state().setOn(metad.valueInt != 0);
+							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceUsn).state().setOn(metad.valueInt != 0);
 							logger.debug("Switching " + metad.pluginName + " " + (metad.valueInt != 0 ? "on" : "off"));
 						} catch (StatusCodeException e) {
 							logger.error("Error switching aurora on/off: " + metad.valueInt);
@@ -317,7 +318,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 					}
 					else if(metad.key.equals("Effect")) {
 						try {
-							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceMac).effects().setEffect(metad.valueString);
+							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceUsn).effects().setEffect(metad.valueString);
 						} catch (StatusCodeException e) {
 							logger.error("Error setting new effect: " + metad.valueString);
 							logger.error(e);
@@ -326,7 +327,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 					}
 					else if(metad.key.equals("Brightness")) {
 						try {
-							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceMac).state().setBrightness(metad.valueInt);
+							auroras.get(metad.instanceId != null && metad.instanceId != null ? metad.instanceId : instanceUsn).state().setBrightness(metad.valueInt);
 							logger.debug("Setting brightness of " + metad.pluginName + " to: " + metad.valueInt);
 						} catch (StatusCodeException e) {
 							logger.error("Error changing brightness: " + metad.valueInt);
@@ -362,7 +363,7 @@ public class NanoleafLightPanelPlugin implements Plugin, PlaybackListener {
 		return instances;
 	}
 
-	public static String getMac(String ip) {
+	public static String getMasasac(String ip) {
 		Pattern macpt = null;
 		// Find OS and set command according to OS
 		String OS = System.getProperty("os.name").toLowerCase();

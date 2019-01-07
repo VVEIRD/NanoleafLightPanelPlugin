@@ -34,6 +34,8 @@ import vveird.TabletopSoundboard.ngui.plugins.JPluginConfigurationPanel;
 import vveird.TabletopSoundboard.ngui.util.ColorScheme;
 import vveird.TabletopSoundboard.ngui.util.Helper;
 import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.NanoleafLightPanelPlugin;
+import vveird.TabletopSoundboard.plugins.NanoleafLightPanel.aurora.AuroraServiceDescriptor;
+
 import javax.swing.JPasswordField;
 
 public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
@@ -52,7 +54,7 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 	private JLabel lblNotSucc;
 	private JComboBox<String> cbNanoleafDevices;
 
-	private Map<String, InetSocketAddress> auroras = null;
+	private Map<String, AuroraServiceDescriptor> auroras = null;
 	private Map<String, String> accessToken = null;
 	private JLabel lblMacHasAccessToken;
 	private JButton btnRemoveAccesToken;
@@ -254,24 +256,24 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 		}
 	}
 
-	private Map<String, InetSocketAddress> getAuroras() {
-		List<InetSocketAddress> availableAuroras = NanoleafLightPanelPlugin.getAvailableAuroras();
-		Map<String, InetSocketAddress> auroras = new HashMap<>();
-		for (InetSocketAddress inetSocketAddress : availableAuroras) {
-			auroras.put(NanoleafLightPanelPlugin.getMac(inetSocketAddress.getHostName()), inetSocketAddress);
+	private Map<String, AuroraServiceDescriptor> getAuroras() {
+		List<AuroraServiceDescriptor> availableAuroras = NanoleafLightPanelPlugin.getAvailableAuroras();
+		Map<String, AuroraServiceDescriptor> auroras = new HashMap<>();
+		for (AuroraServiceDescriptor serviceDescriptor : availableAuroras) {
+			auroras.put(serviceDescriptor.deviceId, serviceDescriptor);
 		}
 		return auroras;
 	}
 
-	private void connect(InetSocketAddress adress) {
+	private void connect(AuroraServiceDescriptor adress) {
 		String mac = (String) cbNanoleafDevices.getSelectedItem();
-		InetSocketAddress inet = auroras.get(mac);
+		AuroraServiceDescriptor serviceDescriptor = auroras.get(mac);
 		if (!accessToken.containsKey(mac))
 			try {
-				String at = Setup.createAccessToken(inet.getHostName(), inet.getPort(),
+				String at = Setup.createAccessToken(serviceDescriptor.address.getHostName(), serviceDescriptor.address.getPort(),
 						NanoleafLightPanelPlugin.API_LEVEL);
 				accessToken.put(mac, at);
-				new Aurora(inet, NanoleafLightPanelPlugin.API_LEVEL, at);
+				new Aurora(serviceDescriptor.address, NanoleafLightPanelPlugin.API_LEVEL, at);
 				lblConnectSuccessful.setVisible(true);
 				lblNotSucc.setVisible(false);
 			} catch (StatusCodeException e) {
@@ -283,17 +285,17 @@ public class JNanoleafOptionsPanel extends JPluginConfigurationPanel {
 			}
 	}
 
-	private void removeAccessToken(InetSocketAddress inet, String at, String mac) throws UnauthorizedException, InternalServerErrorException, StatusCodeException {
-		Setup.destroyAccessToken(inet.getHostName(), inet.getPort(), NanoleafLightPanelPlugin.API_LEVEL, at);
-		AudioApp.removeConfig("nanoleaf.AccessToken." + mac);
+	private void removeAccessToken(AuroraServiceDescriptor serviceDescriptor, String accessToken, String usn) throws UnauthorizedException, InternalServerErrorException, StatusCodeException {
+		Setup.destroyAccessToken(serviceDescriptor.address.getHostName(), serviceDescriptor.address.getPort(), NanoleafLightPanelPlugin.API_LEVEL, accessToken);
+		AudioApp.removeConfig("nanoleaf.AccessToken." + usn);
 		pwdAccessToken.setText("");
-		accessToken.remove(mac);
+		this.accessToken.remove(usn);
 	}
 
-	private void deleteAccessToken(String mac)  {
-		AudioApp.removeConfig("nanoleaf.AccessToken." + mac);
+	private void deleteAccessToken(String usn)  {
+		AudioApp.removeConfig("nanoleaf.AccessToken." + usn);
 		pwdAccessToken.setText("");
-		accessToken.remove(mac);
+		accessToken.remove(usn);
 	}
 
 	@Override
